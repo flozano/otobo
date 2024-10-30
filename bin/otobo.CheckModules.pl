@@ -85,6 +85,7 @@ use Term::ANSIColor                qw(color);
 use Pod::Usage                     qw(pod2usage);
 use Module::Metadata 1.000031      ();
 use CPAN::Meta::Requirements 2.140 ();
+use List::Util                     qw(none);
 
 # CPAN modules
 
@@ -247,18 +248,39 @@ my $DoPrintBundledCpanfile;
 my $DoPrintHelp;
 my @FeatureList;
 my @FeatureInstList;
+my $GetOptError = 0;
 GetOptions(
-    'help|h'           => \$DoPrintHelp,
-    'inst'             => \$DoPrintInstCommand,
-    'list'             => \$DoPrintPackageList,
-    'all'              => \$DoPrintAllModules,
-    'features'         => \$DoPrintFeatures,
-    'finst=s{1,}'      => \@FeatureInstList,
+    'help|h'      => \$DoPrintHelp,
+    'inst'        => \$DoPrintInstCommand,
+    'list'        => \$DoPrintPackageList,
+    'all'         => \$DoPrintAllModules,
+    'features'    => \$DoPrintFeatures,
+    'finst=s{1,}' => sub {
+        my ( $Self, @FeatureInstArguments ) = @_;
+
+        # initialize list of feature names
+        my @Features = ( keys %IsStandardFeature, keys %IsDockerFeature );
+
+        # check given features against list
+        for my $Argument (@FeatureInstArguments) {
+            if ( none { $_ eq $Argument } @Features ) {
+                print color('yellow') . "Feature $Argument is either not present or typed incorrectly!\n" . color('reset');
+                $GetOptError = 1;    # error
+            }
+            else {
+                push @FeatureInstList, $Argument;
+            }
+        }
+    },
     'flist=s{1,}'      => \@FeatureList,
     'cpanfile'         => \$DoPrintCpanfile,
     'docker-cpanfile'  => \$DoPrintDockerCpanfile,
     'bundled-cpanfile' => \$DoPrintBundledCpanfile,
 ) || pod2usage(2);
+
+if ($GetOptError) {
+    exit $GetOptError;
+}
 
 if (@FeatureList) {
     $DoPrintPackageList = 1;
