@@ -3356,6 +3356,7 @@ sub _GetIntegratedPackages {
                 'ImportExportCustomerCompany',
                 'ImportExportStandardObjects',
                 'ImportExportTicket',    # integrated when ImportExport console commands were added
+                'PostMasterFilterValidState',
                 'PostMasterXFromHeader',
                 'RestorePendingInformation',
                 'RotherOSS-AccountedTimeInViews',
