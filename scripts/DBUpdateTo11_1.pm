@@ -85,6 +85,12 @@ sub Run {
         {
             Name   => 'Update MultiValue attribute of Lens dynamic fields',
             Module => 'UpdateLensDynamicFieldsMultiValue',
+            Name   => 'Add OIDC/OAuth2 database tables and fields.',
+            Module => 'DBUpdateOIDC',
+        },
+        {
+            Name   => 'Update mail_account table to support OIDC/OAuth2.',
+            Module => 'DBUpdateOIDCMail',
         },
     );
     my $NumTasks = @Tasks;

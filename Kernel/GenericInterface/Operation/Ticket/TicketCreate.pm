@@ -142,9 +142,15 @@ perform TicketCreate Operation. This will return the created ticket number.
                 HistoryComment                  => 'Some  history comment',    # optional
                 TimeUnit                        => 123,                        # optional
                 NoAgentNotify                   => 1,                          # optional
-                ForceNotificationToUserID       => [1, 2, 3],                  # optional
-                ExcludeNotificationToUserID     => [1, 2, 3],                  # optional
-                ExcludeMuteNotificationToUserID => [1, 2, 3],                  # optional
+                ForceNotificationToUserID       => [1, 2, 3]                   # optional
+                ExcludeNotificationToUserID     => [1, 2, 3]                   # optional
+                ExcludeMuteNotificationToUserID => [1, 2, 3]                   # optional
+                SendEmail                       => 1                           # optional, defaults to 0.
+                EmailSecurity 0> {                                               # optional to enable signing/encryption
+                    Backend => 'SMIME',                                           # Backend, only SMIME supported for now
+                    Sign => 1,                                                   # optional, whether to the sign the email. needs valid SMIME cert for the queue
+                    Encrypt => 1,                                               # optional,whether to encrypt the email. needs valid customer SMIME cert (for the TO addr)
+                }
             },
 
             DynamicField => [                                                  # optional
@@ -1416,7 +1422,11 @@ sub _TicketCreate {
 
     # set Article To
     my $To;
-    if ( $Ticket->{Queue} ) {
+
+    if ( $Article->{To} ) {
+        $To = $Article->{To};
+    }
+    elsif ( $Ticket->{Queue} ) {
         $To = $Ticket->{Queue};
     }
     else {
@@ -1447,8 +1457,109 @@ sub _TicketCreate {
         );
     }
 
-    # Create article.
-    my $ArticleID = $ArticleBackendObject->ArticleCreate(
+    # Create article and optionally send email.
+
+    my $ShallSendEmail = $Article->{SendEmail} &&
+        $Article->{SenderType} eq 'agent' &&
+        $Article->{CommunicationChannel} eq 'Email';
+
+    my $ArticleMethodRef = $ShallSendEmail
+        ?
+        $ArticleBackendObject->can('ArticleSend')
+        :
+        $ArticleBackendObject->can('ArticleCreate');
+
+    my $Tn      = $TicketObject->TicketNumberLookup( TicketID => $TicketID );
+    my $Subject = $TicketObject->TicketSubjectBuild(
+        TicketNumber => $Tn,
+        Subject      => $Article->{Subject} || '',
+    );
+
+    # support for SMIME encryption and signing
+    my %EmailSecurityOptions;
+
+    if (
+        $ShallSendEmail
+        && $Article->{EmailSecurity}
+        &&
+        $Article->{EmailSecurity}->{Backend} eq 'SMIME'
+        )
+    {
+
+        my $QueueID = $Ticket->{QueueID};
+        if ( !$QueueID ) {
+            $QueueID = $Kernel::OM->Get('Kernel::System::Queue')->QueueLookup(
+                Queue  => $Ticket->{Queue},
+                UserID => $Param{UserID},
+            );
+        }
+
+        # prettify FROM
+        if ($ShallSendEmail) {
+            $From = $Kernel::OM->Get('Kernel::System::TemplateGenerator')->Sender(
+                QueueID => $QueueID,
+                UserID  => $Param{UserID},
+            );
+        }
+
+        my $EmailSecurity = {
+            Backend     => 'SMIME',
+            SignKey     => undef,
+            EncryptKeys => undef,
+        };
+
+        my $SMIMEObject = $Kernel::OM->Get('Kernel::System::Crypt::SMIME');
+
+        if ( $Article->{EmailSecurity}->{Sign} ) {
+
+            my $Email = $From;
+            $Email =~ s/^[^<]* *<*//;
+            $Email =~ s/>$//;
+
+            my @Result = $SMIMEObject->CertificateSearch(
+                Search => $Email,
+            );
+
+            if ( scalar @Result == 1 ) {
+
+                $EmailSecurity->{SignKey} = $Result[0]->{Filename};
+            }
+            else {
+
+                return {
+                    Success      => 0,
+                    ErrorMessage => 'Article could not be send, SMIME Signing was requested but no SMIME signing certificate is avail.'
+                };
+            }
+        }
+        if ( $Article->{EmailSecurity}->{Encrypt} ) {
+
+            my $Email = $To;
+            $Email =~ s/^[^<]* *<*//;
+            $Email =~ s/>$//;
+
+            my @Result = $SMIMEObject->CertificateSearch(
+                Search => $Email,
+            );
+
+            if ( scalar @Result == 1 ) {
+
+                $EmailSecurity->{EncryptKeys} = [ $Result[0]->{Filename} ];
+            }
+            else {
+
+                return {
+                    Success      => 0,
+                    ErrorMessage => 'Article could not be send, SMIME Encryption was requested but no unique SMIME certificate for encryption could be identified.'
+                };
+            }
+        }
+
+        $EmailSecurityOptions{EmailSecurity} = $EmailSecurity;
+    }
+
+    my $ArticleID = $ArticleMethodRef->(
+        $ArticleBackendObject,
         NoAgentNotify        => $Article->{NoAgentNotify} || 0,
         TicketID             => $TicketID,
         SenderTypeID         => $Article->{SenderTypeID} || '',
@@ -1471,6 +1582,7 @@ sub _TicketCreate {
             Subject => $Article->{Subject},
             Body    => $PlainBody,
         },
+        %EmailSecurityOptions
     );
 
     if ( !$ArticleID ) {

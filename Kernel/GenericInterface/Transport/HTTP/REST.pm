@@ -33,6 +33,7 @@ use Plack::Response ();
 # OTOBO modules
 use Kernel::System::VariableCheck  qw(:all);
 use Kernel::System::Web::Exception ();
+use Kernel::Language               qw(Translatable);
 
 our $ObjectManagerDisabled = 1;
 
@@ -134,6 +135,48 @@ sub ProviderProcessRequest {
     }
 
     my %QueryParams;
+
+    # Authenthentication header
+    my $AuthenticationHeader = $ParamObject->Header('Authorization');
+    $AuthenticationHeader =~ s/^\s+|\s+$//g;    # trim whitespace
+
+    if ( $AuthenticationHeader && lc($AuthenticationHeader) =~ /^bearer / ) {
+
+        my $Token = substr( $AuthenticationHeader, 7 );
+        $Token =~ s/^\s+|\s+$//g;               # trim whitespace
+
+        my $AuthenticatorObject = $Kernel::OM->Get('Kernel::System::OpenIDConnect::Authenticator');
+        my $Result              = $AuthenticatorObject->Authenticate( Token => $Token );
+
+        if ( $Result->{Success} ) {
+
+            # report success!
+            $Self->{DebuggerObject}->Debug(
+                Summary => 'Bearer Token decoded:',
+                Data    => $Result->{TokenData},
+            );
+
+            # create new session id
+            my $NewSessionID = $Kernel::OM->Get('Kernel::System::AuthSession')->CreateSessionID(
+                $Result->{UserData}->%*,
+                UserLastRequest => $Kernel::OM->Create('Kernel::System::DateTime')->ToEpoch(),
+                UserType        => 'User',
+                SessionSource   => 'GenericInterface',
+            );
+
+            $QueryParams{SessionID} = $NewSessionID;
+        }
+        else {
+
+            # report failure!
+            $Self->{DebuggerObject}->Debug(
+                Summary => 'Authorization Bearer Token present but invalid!',
+                Data    => $Token,
+            );
+
+        }
+    }
+
     if ($QueryParamsStr) {
 
         # Remove question mark '?' in the beginning.
@@ -697,6 +740,42 @@ sub RequesterPerformRequest {
             $Headers{Authorization} = 'Basic ' . encode_base64(
                 $Config->{Authentication}->{BasicAuthUser} . ':' . $Config->{Authentication}->{BasicAuthPassword}
             );
+        }
+
+        # oauth
+        elsif (
+            $Config->{Authentication}->{AuthType} eq 'OAuth'
+            && IsStringWithData( $Config->{Authentication}->{OAuthAccountName} )
+            )
+        {
+
+            my $AccountName = $Config->{Authentication}->{OAuthAccountName};
+
+            my $TokenResult = $Kernel::OM->Get('Kernel::System::OpenIDConnect::TokenProvider')->Fetch(
+                AccountName => $AccountName,
+            );
+
+            if ( !$TokenResult->{Success} ) {
+
+                $Self->{DebuggerObject}->Debug(
+                    Summary => Translatable("Error fetching the OAuth2 Token"),
+                    Data    => $TokenResult->{Error},
+                );
+
+                return {
+                    Success      => 0,
+                    ErrorMessage => $TokenResult->{Error},
+                };
+            }
+
+            my $Token = $TokenResult->{Token};
+
+            $Self->{DebuggerObject}->Debug(
+                Summary => Translatable("Attached OAuth2 Bearer Token"),
+                Data    => $Token,
+            );
+
+            $Headers{Authorization} = "Bearer $Token";
         }
 
         # kerberos

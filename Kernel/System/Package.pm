@@ -3361,6 +3361,8 @@ sub _GetIntegratedPackages {
                 'PostMasterXFromHeader',
                 'RestorePendingInformation',
                 'RotherOSS-AccountedTimeInViews',
+                'OAuth2',
+                'OAuth2-Mail',
             ],
         }
     };

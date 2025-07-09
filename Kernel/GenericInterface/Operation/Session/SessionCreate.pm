@@ -103,15 +103,18 @@ sub Run {
     for my $Needed (qw( Password )) {
         if ( !$Param{Data}->{$Needed} ) {
 
-            return $Self->ReturnError(
-                ErrorCode    => 'SessionCreate.MissingParameter',
-                ErrorMessage => "SessionCreate: $Needed parameter is missing!",
-            );
+            if ( !$Param{Data}->{BearerToken} ) {
+                return $Self->ReturnError(
+                    ErrorCode    => 'SessionCreate.MissingParameter',
+                    ErrorMessage => "SessionCreate: $Needed parameter is missing!",
+                );
+            }
         }
     }
 
     my $SessionID = $Self->CreateSessionID(
         %Param,
+        DebuggerObject => $Self->{DebuggerObject}
     );
 
     if ( !$SessionID ) {
