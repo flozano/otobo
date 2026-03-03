@@ -708,6 +708,7 @@ sub GetFieldState {
     my %FieldStates = $Param{FieldRestrictionsObject}->GetFieldStates(
         %Param,
         InitialRun      => 1,
+        NeedsReset      => $NeedsReset,    # to bypass checks in reference driver
         ACLPreselection => undef,
         DynamicFields   => {
             $DynamicFieldConfig->{Name} => {
