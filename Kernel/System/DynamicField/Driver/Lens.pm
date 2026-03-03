@@ -631,11 +631,6 @@ sub GetFieldState {
     my $AttributeFieldValue;
     if ($NeedsReset) {
 
-        my $IsACLReducible = $Self->HasBehavior(
-            DynamicFieldConfig => $DynamicFieldConfig,
-            Behavior           => 'IsACLReducible',
-        );
-
         my $ReferenceID = $DFParam->{ $DynamicFieldConfig->{Config}{ReferenceDFName} } ? $DFParam->{ $DynamicFieldConfig->{Config}{ReferenceDFName} }[0] : undef;
 
         # get the current value of the referenced attribute field if an object is referenced
