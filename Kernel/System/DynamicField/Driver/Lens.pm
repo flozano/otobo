@@ -600,6 +600,22 @@ sub PossibleValuesGet {
     );
 }
 
+sub ObjectDescriptionGet {
+    my ( $Self, %Param ) = @_;
+
+    my $AttributeDFConfig = $Self->_GetAttributeDFConfig(
+        LensDynamicFieldConfig => $Param{DynamicFieldConfig},
+    );
+
+    return $Kernel::OM->Get('Kernel::System::DynamicField::Backend')->ObjectDescriptionGet(
+        %Param,
+        DynamicFieldConfig => {
+            $AttributeDFConfig->%*,
+            Name => $Param{DynamicFieldConfig}{Name},
+        },
+    );
+}
+
 sub BuildSelectionDataGet {
     my ( $Self, %Param ) = @_;
 
@@ -610,6 +626,22 @@ sub BuildSelectionDataGet {
     return $Kernel::OM->Get('Kernel::System::DynamicField::Backend')->BuildSelectionDataGet(
         %Param,
         DynamicFieldConfig => $AttributeDFConfig,
+    );
+}
+
+sub SearchObjects {
+    my ( $Self, %Param ) = @_;
+
+    my $AttributeDFConfig = $Self->_GetAttributeDFConfig(
+        LensDynamicFieldConfig => $Param{DynamicFieldConfig},
+    );
+
+    return $Kernel::OM->Get('Kernel::System::DynamicField::Backend')->SearchObjects(
+        %Param,
+        DynamicFieldConfig => {
+            $AttributeDFConfig->%*,
+            Name => $Param{DynamicFieldConfig}{Name},
+        },
     );
 }
 
