@@ -10092,6 +10092,57 @@
             </Hash>
         </Value>
     </Setting>
+    <Setting Name="Frontend::Module###AdminImageUpload" Required="0" Valid="1">
+        <Description Translatable="1">Frontend module registration for the agent interface.</Description>
+        <Navigation>Frontend::Admin::ModuleRegistration</Navigation>
+        <Value>
+            <Item ValueType="FrontendRegistration">
+                <Hash>
+                    <Item Key="Group">
+                        <Array>
+                            <Item>admin</Item>
+                        </Array>
+                    </Item>
+                    <Item Key="Description" Translatable="1">Image upload admin module.</Item>
+                    <Item Key="Title" Translatable="1">Image Upload</Item>
+                    <Item Key="NavBarName">Admin</Item>
+                </Hash>
+            </Item>
+        </Value>
+    </Setting>
+
+    <Setting Name="Loader::Module::AdminImageUpload###002-Image" Required="0" Valid="1">
+        <Description Translatable="1">JavaScript loader.</Description>
+        <Navigation>Frontend::Admin::ModuleRegistration::Loader</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="JavaScript">
+                    <Array>
+                        <Item>Core.Agent.Admin.ImageUpload.js</Item>
+                    </Array>
+                </Item>
+            </Hash>
+        </Value>
+    </Setting>
+
+    <Setting Name="Frontend::NavigationModule###AdminImageUpload" Required="0" Valid="1">
+        <Description Translatable="1">Admin menu entry.</Description>
+        <Navigation>Frontend::Admin::ModuleRegistration::AdminOverview</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Group">
+                    <Array>
+                        <Item>admin</Item>
+                    </Array>
+                </Item>
+                <Item Key="Module">Kernel::Output::HTML::NavBar::ModuleAdmin</Item>
+                <Item Key="Name" Translatable="1">Image Upload</Item>
+                <Item Key="Description" Translatable="1">Upload and manage images.</Item>
+                <Item Key="Block">Ticket</Item>
+                <Item Key="IconBig">fa-folder</Item>
+            </Hash>
+        </Value>
+    </Setting>
     <Setting Name="Frontend::Module###AdminTemplateAttachment" Required="0" Valid="1">
         <Description Translatable="1">Frontend module registration for the agent interface.</Description>
         <Navigation>Frontend::Admin::ModuleRegistration</Navigation>
