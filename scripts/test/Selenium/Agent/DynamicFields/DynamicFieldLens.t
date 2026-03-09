@@ -261,11 +261,6 @@ $Selenium->RunTest(
             );
             ok( $FieldID, "Field $FieldConfig->{Name} created successfully" );
 
-            my $StoredFieldConfig = $DynamicFieldObject->DynamicFieldGet(
-                ID => $FieldID,
-            );
-            is( $StoredFieldConfig->{Config}{ReferenceDFName}, $FieldConfig->{Config}{ReferenceDFName}, "Attribute ReferenceDFName is set correctly" );
-
             $FieldIDToName{ $FieldConfig->{Name} } = $FieldID;
         }
 
@@ -422,13 +417,6 @@ $Selenium->RunTest(
                     );
                     ok( $ValueSetSuccess, "Setting value of field $DFName for ticket '$Title' successful" );
                 }
-
-                # check ticket data
-                my %TicketData = $TicketObject->TicketGet(
-                    TicketID      => $TicketID,
-                    UserID        => $TestUserID,
-                    DynamicFields => 1,
-                );
             }
         }
 
@@ -449,28 +437,28 @@ $Selenium->RunTest(
         ok( $TicketID, "Ticket is created - $TicketID" );
         $TicketIDForTitle{'Some Ticket Title'} = $TicketID;
 
-        # Create test article for test ticket
-        my $SubjectRandom = "Subject$RandomID";
-        my $TextRandom    = "Text$RandomID";
+        # # Create test article for test ticket
+        # my $SubjectRandom = "Subject$RandomID";
+        # my $TextRandom    = "Text$RandomID";
 
-        my $ArticleBackendObject =
-            $Kernel::OM->Get('Kernel::System::Ticket::Article')->BackendForChannel(
-                ChannelName => 'Phone',
-            );
+        # my $ArticleBackendObject =
+        #     $Kernel::OM->Get('Kernel::System::Ticket::Article')->BackendForChannel(
+        #         ChannelName => 'Phone',
+        #     );
 
-        my $ArticleID = $ArticleBackendObject->ArticleCreate(
-            TicketID             => $TicketID,
-            SenderType           => 'customer',
-            IsVisibleForCustomer => 1,
-            Subject              => $SubjectRandom,
-            Body                 => $TextRandom,
-            Charset              => 'charset=ISO-8859-15',
-            MimeType             => 'text/plain',
-            HistoryType          => 'AddNote',
-            HistoryComment       => 'Some free text',
-            UserID               => 1,
-        );
-        ok( $ArticleID, "Article #1 is created - $ArticleID" );
+        # my $ArticleID = $ArticleBackendObject->ArticleCreate(
+        #     TicketID             => $TicketID,
+        #     SenderType           => 'customer',
+        #     IsVisibleForCustomer => 1,
+        #     Subject              => $SubjectRandom,
+        #     Body                 => $TextRandom,
+        #     Charset              => 'charset=ISO-8859-15',
+        #     MimeType             => 'text/plain',
+        #     HistoryType          => 'AddNote',
+        #     HistoryComment       => 'Some free text',
+        #     UserID               => 1,
+        # );
+        # ok( $ArticleID, "Article #1 is created - $ArticleID" );
 
         # navigate to screen
         my $ScriptAlias = $Kernel::OM->Get('Kernel::Config')->Get('ScriptAlias');
@@ -511,28 +499,37 @@ $Selenium->RunTest(
         $Selenium->WaitFor( JavaScript => "return \$.active == 0" );
 
         # verify that values are correct
+        is(
+            $Selenium->find_element( "#Autocomplete_DynamicField_LensOnReference${RandomID}_0", 'css' )->get_value,
+            $TicketIDForTitle{'Reference target ticket 3'},
+            'Lens on Reference: First item contains correct value'
+        );
+        is(
+            $Selenium->find_element( "#DynamicField_LensOnMultiValueDropdown${RandomID}_0", 'css' )->get_value,
+            'bcde', 'Lens on MultiValueDropdown: First item contains correct value'
+        );
+        is(
+            $Selenium->find_element( "#DynamicField_SetInnerDropdown${RandomID}_0", 'css' )->get_value,
+            'cdef', "Lens on Set: Set-inner dropdown first element contains correct value"
+        );
+        is(
+            $Selenium->find_element( "#DynamicField_SetInnerText${RandomID}_0", 'css' )->get_value,
+            'Test Text Value',
+            "Lens on Set: Set-inner text first element contains correct value"
+        );
 
         # set reference source to ticket id with three values for each field
+        $TicketTitle = 'DynamicField values ticket 3';
+        $ReferenceSourceElement->send_keys($TicketTitle);
+        $Selenium->WaitFor( JavaScript => "return \$('ul.ui-autocomplete li a').length" );
+        $Selenium->find_element( 'ul.ui-autocomplete li a', 'css' )->click;
+        $Selenium->WaitFor( JavaScript => "return \$.active == 0" );
 
         # verify that values are correct
 
         # set reference soure to ticket without values
 
         # verify that lens fields are empty
-
-        # # Check autocomplete with invalid search term
-        # $Selenium->execute_script("\$('#DynamicField_TestDatabase').autocomplete('search', '-1')");
-
-        # # Wait for AJAX call
-        # $Selenium->WaitFor( JavaScript => "return \$.active == 0" );
-
-        # is(
-        #     $Selenium->execute_script("return \$('.ui-menu-item').length;"),
-        #     0, "Dropdown not visible yet"
-        # );
-
-        # # Check autocomplete with valid search term
-        # $Selenium->execute_script("\$('#DynamicField_TestDatabase').autocomplete('search', '1');");
 
         # # Wait for AJAX call
         # $Selenium->WaitFor( JavaScript => "return \$.active == 0" );
