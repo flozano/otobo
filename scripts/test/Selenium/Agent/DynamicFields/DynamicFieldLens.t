@@ -437,29 +437,6 @@ $Selenium->RunTest(
         ok( $TicketID, "Ticket is created - $TicketID" );
         $TicketIDForTitle{'Some Ticket Title'} = $TicketID;
 
-        # # Create test article for test ticket
-        # my $SubjectRandom = "Subject$RandomID";
-        # my $TextRandom    = "Text$RandomID";
-
-        # my $ArticleBackendObject =
-        #     $Kernel::OM->Get('Kernel::System::Ticket::Article')->BackendForChannel(
-        #         ChannelName => 'Phone',
-        #     );
-
-        # my $ArticleID = $ArticleBackendObject->ArticleCreate(
-        #     TicketID             => $TicketID,
-        #     SenderType           => 'customer',
-        #     IsVisibleForCustomer => 1,
-        #     Subject              => $SubjectRandom,
-        #     Body                 => $TextRandom,
-        #     Charset              => 'charset=ISO-8859-15',
-        #     MimeType             => 'text/plain',
-        #     HistoryType          => 'AddNote',
-        #     HistoryComment       => 'Some free text',
-        #     UserID               => 1,
-        # );
-        # ok( $ArticleID, "Article #1 is created - $ArticleID" );
-
         # navigate to screen
         my $ScriptAlias = $Kernel::OM->Get('Kernel::Config')->Get('ScriptAlias');
         $Selenium->VerifiedGet("${ScriptAlias}index.pl?Action=AgentTicketFreeText;TicketID=$TicketID");
@@ -506,11 +483,13 @@ $Selenium->RunTest(
         );
         is(
             $Selenium->find_element( "#DynamicField_LensOnMultiValueDropdown${RandomID}_0", 'css' )->get_value,
-            'bcde', 'Lens on MultiValueDropdown: First item contains correct value'
+            'bcde',
+            'Lens on MultiValueDropdown: First item contains correct value'
         );
         is(
             $Selenium->find_element( "#DynamicField_SetInnerDropdown${RandomID}_0", 'css' )->get_value,
-            'cdef', "Lens on Set: Set-inner dropdown first element contains correct value"
+            'cdef',
+            "Lens on Set: Set-inner dropdown first element contains correct value"
         );
         is(
             $Selenium->find_element( "#DynamicField_SetInnerText${RandomID}_0", 'css' )->get_value,
@@ -526,60 +505,83 @@ $Selenium->RunTest(
         $Selenium->WaitFor( JavaScript => "return \$.active == 0" );
 
         # verify that values are correct
+        my %ExpectedValues = (
+            "MultiValueDropdown" => [
+                'abcd',
+                'bcde',
+                'cdef'
+            ],
+            "SetInnerDropdown" => [
+                'abcd',
+                'bcde',
+                'cdef'
+            ],
+            "SetInnerText" => [
+                'Test Text Value 1',
+                'Test Text Value 2',
+                'Test Text Value 3',
+            ],
+            "ReferenceTarget" => [
+                $TicketIDForTitle{'Reference target ticket 1'},
+                $TicketIDForTitle{'Reference target ticket 2'},
+                $TicketIDForTitle{'Reference target ticket 3'},
+            ],
+        );
+        for my $Count ( 0 .. 2 ) {
+            is(
+                $Selenium->find_element( "#Autocomplete_DynamicField_LensOnReference${RandomID}_$Count", 'css' )->get_value,
+                $ExpectedValues{ReferenceTarget}[$Count],
+                "Lens on Reference: Item $Count contains correct value"
+            );
+            is(
+                $Selenium->find_element( "#DynamicField_LensOnMultiValueDropdown${RandomID}_$Count", 'css' )->get_value,
+                $ExpectedValues{MultiValueDropdown}[$Count],
+                "Lens on MultiValueDropdown: Item $Count contains correct value"
+            );
+            is(
+                $Selenium->find_element( "#DynamicField_SetInnerDropdown${RandomID}_$Count", 'css' )->get_value,
+                $ExpectedValues{SetInnerDropdown}[$Count],
+                "Lens on Set: Set-inner dropdown element $Count contains correct value"
+            );
+            is(
+                $Selenium->find_element( "#DynamicField_SetInnerText${RandomID}_$Count", 'css' )->get_value,
+                $ExpectedValues{SetInnerText}[$Count],
+                "Lens on Set: Set-inner text element $Count contains correct value"
+            );
+        }
 
         # set reference soure to ticket without values
+        $TicketTitle = 'DynamicField values ticket 1';
+        $ReferenceSourceElement->send_keys($TicketTitle);
+        $Selenium->WaitFor( JavaScript => "return \$('ul.ui-autocomplete li a').length" );
+        $Selenium->find_element( 'ul.ui-autocomplete li a', 'css' )->click;
+        $Selenium->WaitFor( JavaScript => "return \$.active == 0" );
 
         # verify that lens fields are empty
+        $ReferenceSourceElement = $Selenium->find_element( "#Autocomplete_DynamicField_ReferenceSource$RandomID", 'css' );
+        $ReferenceSourceElement->is_enabled;
+        $ReferenceSourceElement->is_displayed;
+        is( $ReferenceSourceElement->get_value, '', "ReferenceSource field is empty" );
 
-        # # Wait for AJAX call
-        # $Selenium->WaitFor( JavaScript => "return \$.active == 0" );
+        $LensOnReferenceElement = $Selenium->find_element( "#Autocomplete_DynamicField_LensOnReference${RandomID}_0", 'css' );
+        $LensOnReferenceElement->is_enabled;
+        $LensOnReferenceElement->is_displayed;
+        is( $LensOnReferenceElement->get_value, '', "LensOnReference field is empty" );
 
-        # # Select suggestion and check if result element has been added
-        # $Selenium->find_element( ".ui-menu-item", 'css' )->click();
-        # $Selenium->WaitFor( JavaScript => "return \$.active == 0" );
-        # $Selenium->find_element( "#ResultElementText_1", 'css' );
+        $LensOnMultiValueDropdownElement = $Selenium->find_element( "#DynamicField_LensOnMultiValueDropdown${RandomID}_0", 'css' );
+        $LensOnMultiValueDropdownElement->is_enabled;
+        $LensOnReferenceElement->is_displayed;
+        is( $LensOnMultiValueDropdownElement->get_value, '', "LensOnMultiValueDropDown field is empty" );
 
-        # # Open Detailed Search Dialog
-        # $Selenium->find_element( "#DynamicFieldDBDetailedSearch_DynamicField_TestDatabase", 'css' )->click();
+        $Element = $Selenium->find_element( "#DynamicField_SetInnerDropdown${RandomID}_0", 'css' );
+        $Element->is_enabled;
+        $Element->is_displayed;
+        is( $Element->get_value, '', "SetInnerDropdown field is empty" );
 
-        # # Wait for AJAX call
-        # $Selenium->WaitFor( JavaScript => "return \$.active == 0" );
-
-        # # Fetching and switching to iframe
-        # my $DetailedSearchIframe = $Selenium->find_element( ".TextOption", 'css' );
-        # $Selenium->switch_to_frame($DetailedSearchIframe);
-
-        # # Set search input
-        # $Selenium->InputFieldValueSet(
-        #     Element => '#id',
-        #     Value   => '2',
-        # );
-
-        # # Trigger search
-        # $Selenium->find_element( "#Search", 'css' )->click();
-
-        # # Select result
-        # $Selenium->find_element( "tr[class='MasterAction']", 'css' )->click();
-
-        # $Selenium->WaitFor( JavaScript => "return \$.active == 0" );
-
-        # # Check if result has been selected
-        # $Selenium->find_element( "#ResultElementText_2", 'css' );
-
-        # # Test removing a value
-        # $Selenium->find_element( "#ResultElementText_1 ~ #RemoveDynamicFieldDBEntry", 'css' )->click();
-        # is(
-        #     $Selenium->execute_script("return \$('#ResultElementText_1').length;"),
-        #     0, "Result Element not visible"
-        # );
-
-        # # Test details screen
-        # $Selenium->find_element( "#ResultElementText_2 ~ .DynamicFieldDBDetails_DynamicField_TestDatabase", 'css' )->click();
-        # my $DetailsIframe = $Selenium->find_element( ".TextOption", 'css' );
-        # $Selenium->switch_to_frame($DetailsIframe);
-
-        # # Check Elements
-        # $Selenium->find_element( "fieldset[field='DynamicField_TestDatabase']", 'css' );
+        $Element = $Selenium->find_element( "#DynamicField_SetInnerText${RandomID}_0", 'css' );
+        $Element->is_enabled;
+        $Element->is_displayed;
+        is( $Element->get_value, '', "SetInnerText field is empty" );
 
         # delete created test dynamic fields
         #   delete in reversed order to delete the set before its inner fields are deleted
