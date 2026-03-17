@@ -36,16 +36,16 @@ sub new {
 sub Run {
     my ( $Self, %Param ) = @_;
 
-    my $LayoutObject        = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
-    my $ParamObject         = $Kernel::OM->Get('Kernel::System::Web::Request');
-    my $StdAttachmentObject = $Kernel::OM->Get('Kernel::System::StdAttachment');
+    my $LayoutObject   = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
+    my $ParamObject    = $Kernel::OM->Get('Kernel::System::Web::Request');
+    my $StdImageObject = $Kernel::OM->Get('Kernel::System::StdImage');
 
     # ------------------------------------------------------------ #
     # change
     # ------------------------------------------------------------ #
     if ( $Self->{Subaction} eq 'Change' ) {
         my $ID   = $ParamObject->GetParam( Param => 'ID' ) || '';
-        my %Data = $StdAttachmentObject->StdAttachmentGet(
+        my %Data = $StdImageObject->StdImagedGet(
             ID => $ID,
         );
 
@@ -56,7 +56,7 @@ sub Run {
             %Data,
         );
         $Output .= $LayoutObject->Output(
-            TemplateFile => 'AdminAttachment',
+            TemplateFile => 'AdminImage',
             Data         => \%Param,
         );
         $Output .= $LayoutObject->Footer();
@@ -93,7 +93,7 @@ sub Run {
         if ( !%Errors ) {
 
             # update attachment
-            my $Update = $StdAttachmentObject->StdAttachmentUpdate(
+            my $Update = $StdImageObject->StdImageUpdate(
                 %GetParam,
                 %UploadStuff,
                 UserID => $Self->{UserID},
@@ -127,7 +127,7 @@ sub Run {
             %GetParam,
         );
         $Output .= $LayoutObject->Output(
-            TemplateFile => 'AdminAttachment',
+            TemplateFile => 'AdminImage',
             Data         => \%Param,
         );
         $Output .= $LayoutObject->Footer();
@@ -147,7 +147,7 @@ sub Run {
             %GetParam,
         );
         $Output .= $LayoutObject->Output(
-            TemplateFile => 'AdminAttachment',
+            TemplateFile => 'AdminImage',
             Data         => \%Param,
         );
         $Output .= $LayoutObject->Footer();
@@ -187,18 +187,18 @@ sub Run {
         if ( !%Errors ) {
 
             # add state
-            my $StdAttachmentID = $StdAttachmentObject->StdAttachmentAdd(
+            my $StdImageID = $StdImageObject->StdImageAdd(
                 %GetParam,
                 %UploadStuff,
                 UserID => $Self->{UserID},
             );
-            if ($StdAttachmentID) {
+            if ($StdImageID) {
                 $Self->_Overview();
                 my $Output = $LayoutObject->Header();
                 $Output .= $LayoutObject->NavigationBar();
-                $Output .= $LayoutObject->Notify( Info => Translatable('Attachment added!') );
+                $Output .= $LayoutObject->Notify( Info => Translatable('Image added!') );
                 $Output .= $LayoutObject->Output(
-                    TemplateFile => 'AdminAttachment',
+                    TemplateFile => 'AdminImage',
                     Data         => \%Param,
                 );
                 $Output .= $LayoutObject->Footer();
@@ -216,7 +216,7 @@ sub Run {
             %GetParam,
         );
         $Output .= $LayoutObject->Output(
-            TemplateFile => 'AdminAttachment',
+            TemplateFile => 'AdminImage',
             Data         => \%Param,
         );
         $Output .= $LayoutObject->Footer();
@@ -232,7 +232,7 @@ sub Run {
         $LayoutObject->ChallengeTokenCheck();
 
         my $ID     = $ParamObject->GetParam( Param => 'ID' );
-        my $Delete = $StdAttachmentObject->StdAttachmentDelete(
+        my $Delete = $StdImageObject->StdImageDelete(
             ID => $ID,
         );
 
@@ -254,7 +254,7 @@ sub Run {
 
         my $ID = $ParamObject->GetParam( Param => 'ID' );
 
-        my %Data = $StdAttachmentObject->StdAttachmentGet(
+        my %Data = $StdImageObject->StdImageGet(
             ID => $ID,
         );
         if ( !%Data ) {
@@ -275,7 +275,7 @@ sub Run {
         my $Output = $LayoutObject->Header();
         $Output .= $LayoutObject->NavigationBar();
         $Output .= $LayoutObject->Output(
-            TemplateFile => 'AdminAttachment',
+            TemplateFile => 'AdminImage',
             Data         => \%Param,
         );
         $Output .= $LayoutObject->Footer();
@@ -331,8 +331,8 @@ sub _Edit {
 sub _Overview {
     my ( $Self, %Param ) = @_;
 
-    my $LayoutObject        = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
-    my $StdAttachmentObject = $Kernel::OM->Get('Kernel::System::StdAttachment');
+    my $LayoutObject   = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
+    my $StdImageObject = $Kernel::OM->Get('Kernel::System::StdImage');
 
     $LayoutObject->Block(
         Name => 'Overview',
@@ -351,7 +351,7 @@ sub _Overview {
         Name => 'OverviewResult',
         Data => \%Param,
     );
-    my %List = $StdAttachmentObject->StdAttachmentList(
+    my %List = $StdImageObject->StdImageList(
         UserID => 1,
         Valid  => 0,
     );
@@ -362,7 +362,7 @@ sub _Overview {
         # get valid list
         my %ValidList = $Kernel::OM->Get('Kernel::System::Valid')->ValidList();
         for my $ID ( sort { $List{$a} cmp $List{$b} } keys %List ) {
-            my %Data = $StdAttachmentObject->StdAttachmentGet(
+            my %Data = $StdImageObject->StdImageGet(
                 ID => $ID,
             );
 
