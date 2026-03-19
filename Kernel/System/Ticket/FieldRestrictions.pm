@@ -95,6 +95,7 @@ Returns possible values, selected values, and visibility of fields
         Autoselect                => {},                            # optional; default: undef; {Field => 0,1,2, ...}
         ACLPreselection           => 0|1,                           # optional
         PossibleValuesOnly        => 1,                             # optional; assume all fields are visible e.g. for sets
+        CachedVisibility          => \%CachedVisibility,            # optional; use the provided visibility and do not store the cache at the end
     );
 
 Returns:
@@ -154,12 +155,16 @@ sub GetFieldStates {
     }
 
     # get the current visibility
-    my $CachedVisibility = $Param{ACLPreselection}
-        ? $Self->{CacheObject}->Get(
-            Type => 'HiddenFields',
-            Key  => $Param{FormID},
-        )
-        : undef;
+    my $CachedVisibility;
+    if ( $Param{ACLPreselection} ) {
+        # in some occasions (e.g. dynamic field set) we do not use the cache
+        $CachedVisibility = exists $Param{CachedVisibility}
+            ? $Param{CachedVisibility}
+            : $Self->{CacheObject}->Get(
+                Type => 'HiddenFields',
+                Key  => $Param{FormID},
+            );
+    }
 
     # don't skip any fields initially or if ACLPreselction is disabled
     my $CompleteRun = $CachedVisibility ? 0 : 1;
@@ -181,6 +186,7 @@ sub GetFieldStates {
 
     # in the special case of assuming visible fields we still want to know whether we do a $CompleteRun
     # but we discard all visibility checks
+    # TODO: Discard if only used in Sets
     if ( $Param{PossibleValuesOnly} ) {
         $VisCheck = 0;
 
@@ -275,27 +281,33 @@ sub GetFieldStates {
                 :
                 $DFParam->{"DynamicField_$DFName"} =~ m/^-?$/ ? 0 : 1;
 
+
+            # TODO: problematic with Sets
             my %TicketData;
-            if ( $Param{TicketID} ) {
-                %TicketData = $Kernel::OM->Get('Kernel::System::Ticket')->TicketGet(
-                    TicketID      => $Param{TicketID},
-                    UserID        => $Param{UserID},
-                    DynamicFields => 1,
-                );
+            if ( !$DynamicFieldConfig->{Config}->{PartOfSet} ) {
 
-                if ( defined $TicketData{"DynamicField_$DFName"} ) {
-
-                    my $ValueIsDifferent = $Kernel::OM->Get('Kernel::System::DynamicField::Backend')->ValueIsDifferent(
-                        DynamicFieldConfig => $DynamicFieldConfig,
-                        Value1             => $DFParam->{"DynamicField_$DFName"},
-                        Value2             => $TicketData{"DynamicField_$DFName"},
+                # TBD: why?
+                if ( $Param{TicketID} ) {
+                    %TicketData = $Kernel::OM->Get('Kernel::System::Ticket')->TicketGet(
+                        TicketID      => $Param{TicketID},
+                        UserID        => $Param{UserID},
+                        DynamicFields => 1,
                     );
 
-                    if ($ValueIsDifferent) {
-                        $UpdateRequired = 1;
-                    }
-                    else {
-                        $UpdateRequired = 0;
+                    if ( defined $TicketData{"DynamicField_$DFName"} ) {
+
+                        my $ValueIsDifferent = $Kernel::OM->Get('Kernel::System::DynamicField::Backend')->ValueIsDifferent(
+                            DynamicFieldConfig => $DynamicFieldConfig,
+                            Value1             => $DFParam->{"DynamicField_$DFName"},
+                            Value2             => $TicketData{"DynamicField_$DFName"},
+                        );
+
+                        if ($ValueIsDifferent) {
+                            $UpdateRequired = 1;
+                        }
+                        else {
+                            $UpdateRequired = 0;
+                        }
                     }
                 }
             }
@@ -307,7 +319,8 @@ sub GetFieldStates {
                 $NewValues{"DynamicField_$DFName"} = ref( $DFParam->{"DynamicField_$DFName"} ) ? [] : '';
 
                 # check if we have a ticket data value and use them, if so
-                if ( defined $TicketData{"DynamicField_$DFName"} ) {
+                # TBD: why? also problematic with Sets
+                if ( defined $TicketData{"DynamicField_$DFName"} && !$DynamicFieldConfig->{Config}->{PartOfSet} ) {
                     $NewValues{"DynamicField_$DFName"} = $TicketData{"DynamicField_$DFName"};
                 }
 
@@ -382,6 +395,13 @@ sub GetFieldStates {
                 };
             }
 
+            if ( $Content{Visibility} ) {
+                %Visibility = (
+                    %Visibility,
+                    $Content{Visibility}->%*,
+                );
+            }
+
             next DYNAMICFIELD;
         }
 
@@ -392,19 +412,46 @@ sub GetFieldStates {
 
             # ...but set actual or default values of reappearing fields first
             if ( $CachedVisibility && $CachedVisibility->{"DynamicField_$DFName"} == 0 ) {
+
                 if ( $Param{TicketID} ) {
                     my %TicketData = $Kernel::OM->Get('Kernel::System::Ticket')->TicketGet(
                         TicketID      => $Param{TicketID},
                         UserID        => $Param{UserID},
                         DynamicFields => 1,
                     );
-                    if ( defined $TicketData{"DynamicField_$DFName"} ) {
+
+                    if ( $DynamicFieldConfig->{Config}->{PartOfSet} ) {
+
+                        my $DynamicFieldObject = $Kernel::OM->Get('Kernel::System::DynamicField');
+                        my $SetDFConfig        = $DynamicFieldObject->DynamicFieldGet(
+                            ID => $DynamicFieldConfig->{Config}->{PartOfSet}
+                        );
+
+                        my $SetDFName = $SetDFConfig->{Name};
+                        if ( defined $TicketData{"DynamicField_$SetDFName"} ) {
+
+                            my $SetValue  = $TicketData{"DynamicField_$SetDFName"};
+                            my $Value     = defined $Param{SetIndex}
+                                ? $SetValue->[$Param{SetIndex}]->{$DFName}
+                                : $DynamicFieldConfig->{Config}->{DefaultValue};
+
+                            $NewValues{"DynamicField_$DFName"} = $Value;
+                            $DFParam->{"DynamicField_$DFName"} = $Value;
+                            $Fields{"$DFName"} = {
+                                PossibleValues  => undef,
+                                NotACLReducible => 1,
+                            };
+
+                            next DYNAMICFIELD;
+                        }
+                    }
+                    elsif ( defined $TicketData{"DynamicField_$DFName"} ) {
+
                         $NewValues{"DynamicField_$DFName"} = $TicketData{"DynamicField_$DFName"};
                         $Fields{$DFName} = {
                             PossibleValues  => undef,
                             NotACLReducible => 1,
                         };
-
                         next DYNAMICFIELD;
                     }
                 }
@@ -446,7 +493,7 @@ sub GetFieldStates {
 
                 # check acls if...
                 # ...a field reappears: possible values have to be recalculated;
-                if ( $CachedVisibility->{"DynamicField_$DFName"} == 0 ) {
+                if ( $CachedVisibility && $CachedVisibility->{"DynamicField_$DFName"} == 0 ) {
                     $CheckACLs = 1;
 
                     my %TicketData;
@@ -609,13 +656,17 @@ sub GetFieldStates {
     }
 
     # cache the new visibility
-    if ( $Param{ACLPreselection} && $VisCheck ) {
+    if ( $Param{ACLPreselection} && $VisCheck && !exists $Param{CachedVisibility} ) {
         $Self->{CacheObject}->Set(
             Type  => 'HiddenFields',
             Key   => $Param{FormID},
             Value => {%Visibility},
             TTL   => 60 * 20,          # 20 min
         );
+    }
+
+    elsif ( $VisCheck && exists $Param{CachedVisibility} ) {
+        $Param{CachedVisibility} = \%Visibility;
     }
 
     # if additional elements are changed by the routine, recursively call GetFieldStates, until all dependencies are worked through
@@ -633,9 +684,12 @@ sub GetFieldStates {
             ChangedElements => { map { $_ => 1 } keys %NewValues },
         );
 
-        # always take the innermost visibility
+        # combine the visibility, inner values take precedence
         if ( IsHashRefWithData( $Recu{Visibility} ) ) {
-            %Visibility = %{ $Recu{Visibility} };
+            %Visibility = (
+                %Visibility,
+                %{ $Recu{Visibility} },
+            );
         }
 
         # combine the field info, inner values take precedence

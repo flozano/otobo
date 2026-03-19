@@ -1387,6 +1387,8 @@ sub Run {
                 ObjectID           => $ObjectID,
                 Value              => $DynamicFieldValues{ $DynamicFieldConfig->{Name} },
                 UserID             => $Self->{UserID},
+                Visibility         => \%Visibility,
+                ParamObject        => $ParamObject,
             );
         }
 
