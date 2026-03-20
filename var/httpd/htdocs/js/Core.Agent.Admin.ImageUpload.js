@@ -25,7 +25,7 @@ Core.Agent.Admin = Core.Agent.Admin || {};
  * @memberof Core.Agent.Admin
  * @author
  * @description
- *      This namespace contains the special module function for Image Upload module.
+ *      This namespace contains the special module function for ImageUpload module.
  */
  Core.Agent.Admin.ImageUpload = (function (TargetNS) {
 
@@ -37,26 +37,26 @@ Core.Agent.Admin = Core.Agent.Admin || {};
      *      This function initializes the table filter.
      */
     TargetNS.Init = function () {
-        Core.UI.Table.InitTableFilter($("#FilterAttachments"), $("#Attachments"));
+        Core.UI.Table.InitTableFilter($("#FilterImages"), $("#Images"));
 
-        // delete attachment
-        TargetNS.InitAttachmentDelete();
+        // delete image
+        TargetNS.InitImageDelete();
     };
 
     /**
-     * @name AttachmentDelete
+     * @name ImageDelete
      * @memberof Core.Agent.Admin.ImageUpload
      * @function
      * @description
-     *      This function deletes attachment on buton click.
+     *      This function deletes image on buton click.
      */
-    TargetNS.InitAttachmentDelete = function () {
-        $('.AttachmentDelete').on('click', function () {
-            var $AttachmentDeleteElement = $(this);
+    TargetNS.InitImageDelete = function () {
+        $('.ImageDelete').on('click', function () {
+            var $ImageDeleteElement = $(this);
 
             Core.UI.Dialog.ShowContentDialog(
-                $('#DeleteAttachmentDialogContainer'),
-                Core.Language.Translate('Delete this Attachment'),
+                $('#DeleteImageDialogContainer'),
+                Core.Language.Translate('Delete this Image'),
                 '240px',
                 'Center',
                 true,
@@ -65,19 +65,19 @@ Core.Agent.Admin = Core.Agent.Admin || {};
                         Class: 'Primary',
                         Label: Core.Language.Translate("Confirm"),
                         Function: function() {
-                            $('.Dialog .InnerContent .Center').text(Core.Language.Translate("Deleting attachment..."));
+                            $('.Dialog .InnerContent .Center').text(Core.Language.Translate("Deleting image..."));
                             $('.Dialog .Content .ContentFooter').remove();
 
                             Core.AJAX.FunctionCall(
-                                Core.Config.Get('Baselink') + 'Action=AdminAttachment;Subaction=Delete',
-                                { ID: $AttachmentDeleteElement.data('id') },
+                                Core.Config.Get('Baselink') + 'Action=AdminImageUpload;Subaction=Delete',
+                                { ID: $ImageDeleteElement.data('id') },
                                 function(Reponse) {
-                                    var DialogText = Core.Language.Translate("There was an error deleting the attachment. Please check the logs for more information.");
+                                    var DialogText = Core.Language.Translate("There was an error deleting the image. Please check the logs for more information.");
                                     if (parseInt(Reponse, 10) > 0) {
-                                        $('#AttachmentID_' + parseInt(Reponse, 10)).fadeOut(function() {
+                                        $('#ImageID_' + parseInt(Reponse, 10)).fadeOut(function() {
                                             $(this).remove();
                                         });
-                                        DialogText = Core.Language.Translate("Attachment was deleted successfully.");
+                                        DialogText = Core.Language.Translate("Image was deleted successfully.");
                                     }
                                     $('.Dialog .InnerContent .Center').text(DialogText);
                                     window.setTimeout(function() {
@@ -90,7 +90,7 @@ Core.Agent.Admin = Core.Agent.Admin || {};
                     {
                         Label: Core.Language.Translate("Cancel"),
                         Function: function () {
-                            Core.UI.Dialog.CloseDialog($('#DeleteAttachmentDialog'));
+                            Core.UI.Dialog.CloseDialog($('#DeleteImageDialog'));
                         }
                     }
                 ]
