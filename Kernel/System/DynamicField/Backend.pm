@@ -3169,4 +3169,211 @@ sub GetFieldState {
     return;
 }
 
+
+=head2 BuildAJAXReturn()
+
+Used from Ticket Masks to correctly call BackendObject->BuildSelectionDataGet(),
+and returns an array of hashes wich can just be pushed into @DynamicFieldAJAX.
+
+    my $Return = $BackendObject->BuildAJAXReturn(
+        DynamicFieldConfigs => $DFConfigs,         # the DF configs hash { name => config } to build AJAX for
+        GetParam            => $GetParam,          # current DF values as in Ticket Mask $GetParam
+        DynFieldStates      => $DynFieldStates,    # current ACL Dynamic Field states (visibility etc)
+    );
+    
+Returns:
+
+    $Return = [
+        { ... },
+        { ... },
+    ];
+
+=cut
+
+sub BuildAJAXReturn {
+    my ( $Self, %Param ) = @_;
+
+    # check needed stuff
+    for my $Needed (qw(DynamicFieldConfigs GetParam DynFieldStates)) {
+        if ( !$Param{$Needed} ) {
+            $Kernel::OM->Get('Kernel::System::Log')->Log(
+                Priority => 'error',
+                Message  => "Need $Needed!"
+            );
+
+            return;
+        }
+    }
+
+    my $DynamicFieldConfigs = $Param{DynamicFieldConfigs};
+    my $GetParam            = $Param{GetParam};
+    my $DynFieldStates      = $Param{DynFieldStates};
+
+    my @DynamicFieldAJAX; # return value
+
+    # cycle through the activated Dynamic Fields for this screen
+    DYNAMICFIELD:
+    for my $Name ( sort keys $DynFieldStates->{Fields}->%* ) {
+
+        my $DynamicFieldConfig = $DynamicFieldConfigs->{$Name};
+
+        if ( $DynamicFieldConfig->{Config}{MultiValue} && ref $GetParam->{DynamicField}{"DynamicField_$DynamicFieldConfig->{Name}"} eq 'ARRAY' ) {
+            for my $i ( 0 .. $#{ $GetParam->{DynamicField}{"DynamicField_$DynamicFieldConfig->{Name}"} } ) {
+                my $DataValues = $DynFieldStates->{Fields}{$Name}{NotACLReducible}
+                    ? ( $GetParam->{DynamicField}{"DynamicField_$DynamicFieldConfig->{Name}"}[$i] // '' )
+                    :
+                    (
+                        $Self->BuildSelectionDataGet(
+                            DynamicFieldConfig => $DynamicFieldConfig,
+                            PossibleValues     => $DynFieldStates->{Fields}{$Name}{PossibleValues},
+                            Value              => [ $GetParam->{DynamicField}{"DynamicField_$DynamicFieldConfig->{Name}"}[$i] ],
+                        )
+                        || $DynFieldStates->{Fields}{$Name}{PossibleValues}
+                    );
+
+                # add dynamic field to the list of fields to update
+                push @DynamicFieldAJAX, {
+                    Name        => 'DynamicField_' . $DynamicFieldConfig->{Name} . "_$i",
+                    Data        => $DataValues,
+                    SelectedID  => $GetParam->{DynamicField}{"DynamicField_$DynamicFieldConfig->{Name}"}[$i],
+                    Translation => $DynamicFieldConfig->{Config}{TranslatableValues} || 0,
+                    Max         => 100,
+                };
+            }
+
+            # add template value for keeping templates in line with ACLs
+            if ( !$DynFieldStates->{Fields}{$Name}{NotACLReducible} ) {
+                my $DataValues = (
+                    $Self->BuildSelectionDataGet(
+                        DynamicFieldConfig => $DynamicFieldConfig,
+                        PossibleValues     => $DynFieldStates->{Fields}{$Name}{PossibleValues},
+                        Value              => [ $DynamicFieldConfig->{Config}{DefaultValue} // '' ],
+                        )
+                        || $DynFieldStates->{Fields}{$Name}{PossibleValues}
+                );
+
+                # add dynamic field to the list of fields to update
+                push @DynamicFieldAJAX, {
+                    Name        => 'DynamicField_' . $DynamicFieldConfig->{Name} . '_Template',
+                    Data        => $DataValues,
+                    SelectedID  => $DynamicFieldConfig->{Config}{DefaultValue} // '',
+                    Translation => $DynamicFieldConfig->{Config}{TranslatableValues} || 0,
+                    Max         => 100,
+                };
+            }
+
+            next DYNAMICFIELD;
+        }
+
+        my $DataValues = $DynFieldStates->{Fields}{$Name}{NotACLReducible}
+            ? ( $GetParam->{DynamicField}{"DynamicField_$DynamicFieldConfig->{Name}"} // '' )
+            :
+            (
+                $Self->BuildSelectionDataGet(
+                    DynamicFieldConfig => $DynamicFieldConfig,
+                    PossibleValues     => $DynFieldStates->{Fields}{$Name}{PossibleValues},
+                    Value              => $GetParam->{DynamicField}{"DynamicField_$DynamicFieldConfig->{Name}"},
+                )
+                || $DynFieldStates->{Fields}{$Name}{PossibleValues}
+            );
+
+        # add dynamic field to the list of fields to update
+        push @DynamicFieldAJAX, {
+            Name        => 'DynamicField_' . $DynamicFieldConfig->{Name},
+            Data        => $DataValues,
+            SelectedID  => $GetParam->{DynamicField}{"DynamicField_$DynamicFieldConfig->{Name}"},
+            Translation => $DynamicFieldConfig->{Config}{TranslatableValues} || 0,
+            Max         => 100,
+        };
+    }
+
+    for my $SetField ( values $DynFieldStates->{Sets}->%* ) {
+
+        my $DynamicFieldConfig = $SetField->{DynamicFieldConfig};
+
+        # the frontend name is the name of the inner field including its index or the '_Template' suffix
+        DYNAMICFIELD:
+        for my $FrontendName ( keys $SetField->{FieldStates}->%* ) {
+
+            if ( $DynamicFieldConfig->{Config}{MultiValue} && ref $SetField->{Values}{$FrontendName} eq 'ARRAY' ) {
+                for my $i ( 0 .. $#{ $SetField->{Values}{$FrontendName} } ) {
+                    my $DataValues = $SetField->{FieldStates}{$FrontendName}{NotACLReducible}
+                        ? ( $SetField->{Values}{$FrontendName}[$i] // '' )
+                        :
+                        (
+                            $Self->BuildSelectionDataGet(
+                                DynamicFieldConfig => $DynamicFieldConfig,
+                                PossibleValues     => $SetField->{FieldStates}{$FrontendName}{PossibleValues},
+                                Value              => [ $SetField->{Values}{$FrontendName}[$i] ],
+                            )
+                            || $SetField->{FieldStates}{$FrontendName}{PossibleValues}
+                        );
+
+                    # add dynamic field to the list of fields to update
+                    push @DynamicFieldAJAX, {
+                        Name        => 'DynamicField_' . $FrontendName . "_$i",
+                        Data        => $DataValues,
+                        SelectedID  => $SetField->{Values}{$FrontendName}[$i],
+                        Translation => $DynamicFieldConfig->{Config}{TranslatableValues} || 0,
+                        Max         => 100,
+                    };
+                }
+
+                # add template value for keeping templates in line with ACLs
+                if ( !$SetField->{FieldStates}{$FrontendName}{NotACLReducible} ) {
+                    my $DataValues = (
+                        $Self->BuildSelectionDataGet(
+                            DynamicFieldConfig => $DynamicFieldConfig,
+                            PossibleValues     => $SetField->{FieldStates}{$FrontendName}{PossibleValues},
+                            Value              => [ $DynamicFieldConfig->{Config}{DefaultValue} // '' ],
+                            )
+                            || $SetField->{FieldStates}{$FrontendName}{PossibleValues}
+                    );
+
+                    # add dynamic field to the list of fields to update
+                    push @DynamicFieldAJAX, {
+                        Name        => 'DynamicField_' . $DynamicFieldConfig->{Name} . '_Template',
+                        Data        => $DataValues,
+                        SelectedID  => $DynamicFieldConfig->{Config}{DefaultValue} // '',
+                        Translation => $DynamicFieldConfig->{Config}{TranslatableValues} || 0,
+                        Max         => 100,
+                    };
+                }
+
+                next DYNAMICFIELD;
+            }
+
+            my $DataValues = $SetField->{FieldStates}{$FrontendName}{NotACLReducible}
+                ? ( $SetField->{Values}{$FrontendName} // '' )
+                :
+                (
+                    $Self->BuildSelectionDataGet(
+                        DynamicFieldConfig => $DynamicFieldConfig,
+                        PossibleValues     => $SetField->{FieldStates}{$FrontendName}{PossibleValues},
+                        Value              => $SetField->{Values}{$FrontendName},
+                    )
+                    || $SetField->{FieldStates}{$FrontendName}{PossibleValues}
+                );
+
+            # add dynamic field to the list of fields to update
+            push @DynamicFieldAJAX, {
+                Name        => 'DynamicField_' . $FrontendName,
+                Data        => $DataValues,
+                SelectedID  => $SetField->{Values}{$FrontendName},
+                Translation => $DynamicFieldConfig->{Config}{TranslatableValues} || 0,
+                Max         => 100,
+            };
+        }
+    }
+
+    if ( IsHashRefWithData( $DynFieldStates->{Visibility} ) ) {
+        push @DynamicFieldAJAX, {
+            Name => 'Restrictions_Visibility',
+            Data => $DynFieldStates->{Visibility},
+        };
+    }
+
+    return @DynamicFieldAJAX;
+}
+
 1;
