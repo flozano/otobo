@@ -133,7 +133,6 @@ sub ValueSet {
     my ( $Self, %Param ) = @_;
 
     my $ParamObject = $Param{ParamObject};
-    my $Visibility  = $Param{Visibility};
 
     my @SetValue = defined $Param{Value} ? $Param{Value}->@* : ( {} );
 
@@ -151,10 +150,15 @@ sub ValueSet {
     # if we've been coming via some form, parts may be invisible
     my @HiddenFields;
 
-    if($ParamObject && $Visibility)
+    if($ParamObject)
     {
         my $FormID = $ParamObject->GetParam( Param => 'FormID' );
         if( $FormID ) {
+
+            my $Visibility = $Kernel::OM->Get('Kernel::System::Cache')->Get(
+                Type => 'HiddenFields',
+                Key  => $FormID,
+            );
 
             # check if any of our Set inner fields are hidden
             for my $DFName ( keys $DynamicField->%* ) {
@@ -215,6 +219,7 @@ sub ValueSet {
                         $FieldValue[$Index] = undef;
                     }
                     else {
+
                         # index has moved due to delete/append
                         # so replace incoming value with the
                         # value from DB at the *original* index
