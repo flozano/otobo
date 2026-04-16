@@ -419,7 +419,8 @@ Core.AJAX = (function (TargetNS) {
 
             // text area elements like the ticket body
             if ( $Element.is('textarea') && !$Element.hasClass('DynamicFieldTextArea') ) {
-                UpdateTextarea($Element, DataValue);
+                let EscapedValue = Core.App.EscapeHTML(DataValue);
+                UpdateTextarea($Element, EscapedValue);
                 return;
             }
 
@@ -465,8 +466,10 @@ Core.AJAX = (function (TargetNS) {
             var $ReferenceElement = $Element.parent().find('.DynamicFieldReference');
             if ( $ReferenceElement.length ) {
                 if ( typeof DataValue == 'object' && DataValue[0] ) {
-                    $Element.val( DataValue[0][0] );
-                    $ReferenceElement.val( DataValue[0][1] );
+                    let EscapedValueKey = Core.App.EscapeHTML(DataValue[0][0]);
+                    let EscapedValueVal = Core.App.EscapeHTML(DataValue[0][1]);
+                    $Element.val( EscapedValueKey );
+                    $ReferenceElement.val( EscapedValueVal );
                 }
                 else {
                     $Element.val( '' );
@@ -476,7 +479,8 @@ Core.AJAX = (function (TargetNS) {
             }
 
             // Other form elements
-            $Element.val(DataValue);
+            let EscapedValue = Core.App.EscapeHTML(DataValue);
+            $Element.val(EscapedValue);
 
             // Trigger custom redraw event for InputFields
             if ($Element.hasClass('Modernize')) {
