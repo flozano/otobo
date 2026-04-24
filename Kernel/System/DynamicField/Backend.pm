@@ -3169,18 +3169,16 @@ sub GetFieldState {
     return;
 }
 
-
 =head2 BuildAJAXReturn()
 
-Used from Ticket Masks to correctly call BackendObject->BuildSelectionDataGet(),
-and returns an array of hashes wich can just be pushed into @DynamicFieldAJAX.
+Used from Ticket Masks and returns an array of hashes which can just be pushed into @DynamicFieldAJAX.
 
     my $Return = $BackendObject->BuildAJAXReturn(
         DynamicFieldConfigs => $DFConfigs,         # the DF configs hash { name => config } to build AJAX for
         GetParam            => $GetParam,          # current DF values as in Ticket Mask $GetParam
         DynFieldStates      => $DynFieldStates,    # current ACL Dynamic Field states (visibility etc)
     );
-    
+
 Returns:
 
     $Return = [
@@ -3208,8 +3206,9 @@ sub BuildAJAXReturn {
     my $DynamicFieldConfigs = $Param{DynamicFieldConfigs};
     my $GetParam            = $Param{GetParam};
     my $DynFieldStates      = $Param{DynFieldStates};
+    my $IDSuffix            = $Param{IDSuffix} // '';
 
-    my @DynamicFieldAJAX; # return value
+    my @DynamicFieldAJAX;    # return value
 
     # cycle through the activated Dynamic Fields for this screen
     DYNAMICFIELD:
@@ -3366,10 +3365,30 @@ sub BuildAJAXReturn {
         }
     }
 
+    # attach process suffix to dynamic field names in visibility hash
+    my %VisibilitySuffixed = $DynFieldStates->{Visibility}->%*;
+    if ($IDSuffix) {
+
+        my %VisibilityMapping;
+        for my $VisibilityKey ( keys $DynFieldStates->{Visibility}->%* ) {
+
+            my $VisibilityValue = $DynFieldStates->{Visibility}->{$VisibilityKey};
+            my $Index           = '';
+            if ( $VisibilityKey =~ m/((_[0-9]+)?(_[0-9]+)?(_Template)?)$/ ) {
+                $Index = $1;
+                $VisibilityKey =~ s/$Index//;
+            }
+            $VisibilityKey .= $IDSuffix . $Index;
+            $VisibilityMapping{$VisibilityKey} = $VisibilityValue;
+        }
+
+        %VisibilitySuffixed = %VisibilityMapping;
+    }
+
     if ( IsHashRefWithData( $DynFieldStates->{Visibility} ) ) {
         push @DynamicFieldAJAX, {
             Name => 'Restrictions_Visibility',
-            Data => $DynFieldStates->{Visibility},
+            Data => \%VisibilitySuffixed,
         };
     }
 
