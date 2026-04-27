@@ -1086,11 +1086,6 @@ sub _OutputActivityDialog {
         },
     );
 
-    $LayoutObject->AddJSData(
-        Key   => 'ActivityDialogEntityID',
-        Value => $ActivityActivityDialog->{ActivityDialog},
-    );
-
     my %RenderedFields = ();
 
     my $InputDefinitionRendered = 0;
