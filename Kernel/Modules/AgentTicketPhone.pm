@@ -977,6 +977,7 @@ sub Run {
                     Autoselect      => $Autoselect,
                     ACLPreselection => $ACLPreselection,
                     LoopProtection  => \$LoopProtection,
+                    ParamObject     => $ParamObject,
                 );
 
                 # combine FieldStates
@@ -1620,7 +1621,6 @@ sub Run {
                 ObjectID           => $TicketID,
                 Value              => $DynamicFieldValues{ $DynamicFieldConfig->{Name} },
                 UserID             => $Self->{UserID},
-                Visibility         => \%Visibility,
                 ParamObject        => $ParamObject,
             );
         }
@@ -1735,7 +1735,6 @@ sub Run {
                 ObjectID           => $ArticleID,
                 Value              => $DynamicFieldValues{ $DynamicFieldConfig->{Name} },
                 UserID             => $Self->{UserID},
-                Visibility         => \%Visibility,
                 ParamObject        => $ParamObject,
             );
         }
@@ -2206,6 +2205,7 @@ sub Run {
                     Autoselect      => $Autoselect,
                     ACLPreselection => $ACLPreselection,
                     LoopProtection  => \$LoopProtection,
+                    ParamObject     => $ParamObject,
                 );
 
                 # combine FieldStates

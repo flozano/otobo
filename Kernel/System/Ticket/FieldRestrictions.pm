@@ -157,6 +157,7 @@ sub GetFieldStates {
     # get the current visibility
     my $CachedVisibility;
     if ( $Param{ACLPreselection} ) {
+
         # in some occasions (e.g. dynamic field set) we do not use the cache
         $CachedVisibility = exists $Param{CachedVisibility}
             ? $Param{CachedVisibility}
@@ -281,12 +282,9 @@ sub GetFieldStates {
                 :
                 $DFParam->{"DynamicField_$DFName"} =~ m/^-?$/ ? 0 : 1;
 
-
-            # TODO: problematic with Sets
             my %TicketData;
-            if ( !$DynamicFieldConfig->{Config}->{PartOfSet} ) {
+            if ( !$Param{NoDefaultValue} ) {
 
-                # TBD: why?
                 if ( $Param{TicketID} ) {
                     %TicketData = $Kernel::OM->Get('Kernel::System::Ticket')->TicketGet(
                         TicketID      => $Param{TicketID},
@@ -319,8 +317,7 @@ sub GetFieldStates {
                 $NewValues{"DynamicField_$DFName"} = ref( $DFParam->{"DynamicField_$DFName"} ) ? [] : '';
 
                 # check if we have a ticket data value and use them, if so
-                # TBD: why? also problematic with Sets
-                if ( defined $TicketData{"DynamicField_$DFName"} && !$DynamicFieldConfig->{Config}->{PartOfSet} ) {
+                if ( defined $TicketData{"DynamicField_$DFName"} && !$Param{NoDefaultValue} ) {
                     $NewValues{"DynamicField_$DFName"} = $TicketData{"DynamicField_$DFName"};
                 }
 
@@ -420,30 +417,14 @@ sub GetFieldStates {
                         DynamicFields => 1,
                     );
 
-                    if ( $DynamicFieldConfig->{Config}->{PartOfSet} ) {
+                    if ( $Param{NoDefaultValue} ) {
 
-                        my $DynamicFieldObject = $Kernel::OM->Get('Kernel::System::DynamicField');
-                        my $SetDFConfig        = $DynamicFieldObject->DynamicFieldGet(
-                            ID => $DynamicFieldConfig->{Config}->{PartOfSet}
-                        );
+                        $Fields{"$DFName"} = {
+                            PossibleValues  => undef,
+                            NotACLReducible => 1,
+                        };
 
-                        my $SetDFName = $SetDFConfig->{Name};
-                        if ( defined $TicketData{"DynamicField_$SetDFName"} ) {
-
-                            my $SetValue  = $TicketData{"DynamicField_$SetDFName"};
-                            my $Value     = defined $Param{SetIndex}
-                                ? $SetValue->[$Param{SetIndex}]->{$DFName}
-                                : $DynamicFieldConfig->{Config}->{DefaultValue};
-
-                            $NewValues{"DynamicField_$DFName"} = $Value;
-                            $DFParam->{"DynamicField_$DFName"} = $Value;
-                            $Fields{"$DFName"} = {
-                                PossibleValues  => undef,
-                                NotACLReducible => 1,
-                            };
-
-                            next DYNAMICFIELD;
-                        }
+                        next DYNAMICFIELD;
                     }
                     elsif ( defined $TicketData{"DynamicField_$DFName"} ) {
 

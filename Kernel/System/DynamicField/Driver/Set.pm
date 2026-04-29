@@ -39,6 +39,7 @@ our @ObjectDependencies = (
     'Kernel::System::DynamicField::Backend',
     'Kernel::Output::HTML::DynamicField::Mask',
     'Kernel::System::Log',
+    'Kernel::System::Cache',
 );
 
 =head1 NAME
@@ -150,10 +151,10 @@ sub ValueSet {
     # if we've been coming via some form, parts may be invisible
     my @HiddenFields;
 
-    if($ParamObject)
+    if ($ParamObject)
     {
         my $FormID = $ParamObject->GetParam( Param => 'FormID' );
-        if( $FormID ) {
+        if ($FormID) {
 
             my $Visibility = $Kernel::OM->Get('Kernel::System::Cache')->Get(
                 Type => 'HiddenFields',
@@ -179,7 +180,7 @@ sub ValueSet {
 
         # check if this set field is hidden
         my $IsHidden = grep { $_ eq $Name } @HiddenFields;
-        if($IsHidden && $ParamObject) {
+        if ( $IsHidden && $ParamObject ) {
 
             # restore hidden field values from old values
             my $OldValues = $BackendObject->ValueGet(
@@ -187,7 +188,7 @@ sub ValueSet {
                 DynamicFieldConfig => $DynamicField->{$Name},
                 Set                => 1,
                 ObjectName         => undef,
-            );
+            ) // [];
 
             if ( $Param{DynamicFieldConfig}{Config}{MultiValue} ) {
 
@@ -376,11 +377,11 @@ sub EditFieldRender {
         }
     }
 
-    if($Param{Visibility}) {
-         %Visibility = (
+    if ( $Param{Visibility} ) {
+        %Visibility = (
             %Visibility,
             $Param{Visibility}->%*,
-         );
+        );
     }
 
     for my $SetIndex ( 0 .. $#SetValue ) {
@@ -441,7 +442,7 @@ sub EditFieldRender {
             ParamObject        => $Param{ParamObject},
             DynamicFieldValues => \%TemplateValues,
             CustomerInterface  => $Param{CustomerInterface},
-            Visibility           => \%Visibility,
+            Visibility         => \%Visibility,
 
             # can be set by preceding GetFieldState()
             PossibleValuesFilter => $Self->{PossibleValuesFilter}{ $Param{DynamicFieldConfig}->{Name} }[ $#SetValue + 1 ] // {},
@@ -972,7 +973,7 @@ sub GetFieldState {
         my %IndexVisibility;
 
         # if we have a cached visibility, we use it for set inner fields, too
-        if ( $PassVisibility ) {
+        if ($PassVisibility) {
 
             # if the whole set is reappearing, we must treat all inner fields as reappearing
             if ( $Param{CachedVisibility}{"DynamicField_$SetConfig->{Name}"} == 0 ) {
@@ -999,9 +1000,66 @@ sub GetFieldState {
             LoopProtection   => \$LoopProtection,
             SetIndex         => $SetIndex,
             CachedVisibility => $PassVisibility ? \%IndexVisibility : undef,
+            NoDefaultValue   => 1,
         );
 
         for my $Name ( keys $SetFieldStates{Fields}->%* ) {
+
+            my $DFName = "DynamicField_" . $Name;
+            if ( $IndexVisibility{$DFName} == 0 && $SetFieldStates{Visibility}{$DFName} == 1 )
+            {
+                my $ParamObject = $Param{ParamObject};
+                if ( $ParamObject && $Param{TicketID} ) {
+
+                    my @FieldValue = map { $_->{$Name} } @SetValue;
+
+                    my $BackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+                    my $OldValues     = $BackendObject->ValueGet(
+                        ObjectID           => $Param{TicketID},
+                        DynamicFieldConfig => $DynamicField->{$Name},
+                        Set                => 1,
+                        ObjectName         => undef,
+                    ) // [];
+
+                    if ( $DynamicField->{$Name}{Config}{MultiValue} ) {
+
+                        my $IndexMax = $#FieldValue;
+
+                        # gather OriginSetIndex values
+                        # to detect if we had delete/append operations
+                        my @OriginSetIndex = $ParamObject->GetArray(
+                            Param => 'OriginSetIndex_' . $SetConfig->{Name},
+                        );
+
+                        if (@OriginSetIndex) {
+
+                            my $OriginIndex = $OriginSetIndex[$SetIndex];
+                            if ( $OriginIndex == $SetIndex ) {
+
+                                # index is still at original position,
+                                # no delete/append happend
+                                # but since the field is hidden,
+                                # replace the incoming value
+                                $SetFieldStates{NewValues}{$Name} = $OldValues->[$SetIndex];
+                            }
+                            elsif ( $OriginIndex == -1 ) {
+
+                                # index did not exist initially,
+                                # value is result of append,
+                                # make sure hidden field gets empty value
+                                $SetFieldStates{NewValues}{$Name} = undef;
+                            }
+                            else {
+
+                                # index has moved due to delete/append
+                                # so replace incoming value with the
+                                # value from DB at the *original* index
+                                $SetFieldStates{NewValues}{$Name} = $OldValues->[$OriginIndex];
+                            }
+                        }
+                    }
+                }
+            }
 
             my $SuffixedName = $Name . ( $SetConfig->{ProcessSuffix} || '' );
 
@@ -1027,9 +1085,10 @@ sub GetFieldState {
             # the returned visibility will only be cached if the changed element affects visibility
 
             # ajax visibility
-            $Return{Visibility}{ $DFName . '_' . $SetIndex } = $SetFieldStates{Visibility}{ $DFName };
+            $Return{Visibility}{ $DFName . '_' . $SetIndex } = $SetFieldStates{Visibility}{$DFName};
+
             # initial render visibility
-            $Return{Visibility}{ $DFName } = $SetFieldStates{Visibility}{ $DFName };
+            $Return{Visibility}{$DFName} = $SetFieldStates{Visibility}{$DFName};
         }
     }
 
@@ -1039,7 +1098,7 @@ sub GetFieldState {
         }
 
         my %IndexVisibility;
-        if ( $PassVisibility ) {
+        if ($PassVisibility) {
 
             # if the whole set is reappearing, we must treat all inner fields as reappearing
             if ( $Param{CachedVisibility}{"DynamicField_$SetConfig->{Name}"} == 0 ) {
@@ -1064,6 +1123,7 @@ sub GetFieldState {
             },
             LoopProtection   => \$LoopProtection,
             CachedVisibility => $PassVisibility ? \%IndexVisibility : undef,
+            NoDefaultValue   => 1,
         );
 
         for my $Name ( sort keys $SetFieldStates{Fields}->%* ) {
@@ -1086,9 +1146,8 @@ sub GetFieldState {
                 : $DFParam{"DynamicField_$Name"};
         }
 
-
         for my $DFName ( keys $SetFieldStates{Visibility}->%* ) {
-            $Return{Visibility}{ $DFName . '_Template' } = $SetFieldStates{Visibility}{ $DFName };
+            $Return{Visibility}{ $DFName . '_Template' } = $SetFieldStates{Visibility}{$DFName};
         }
     }
 
@@ -1099,7 +1158,6 @@ sub GetFieldState {
             NewValue      => $Return{NewValue},
         );
     }
-
     return %Return;
 }
 

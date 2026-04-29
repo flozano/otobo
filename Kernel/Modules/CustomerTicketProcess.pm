@@ -487,6 +487,7 @@ sub _RenderAjax {
         Autoselect                => $Autoselect,
         ACLPreselection           => $ACLPreselection // '',
         LoopProtection            => \$LoopProtection,
+        ParamObject               => $ParamObject,
     );
 
     # set new values
@@ -1147,6 +1148,7 @@ sub _OutputActivityDialog {
             Autoselect                => $Autoselect,
             ACLPreselection           => $ACLPreselection // '',
             LoopProtection            => \$LoopProtection,
+            ParamObject               => $Kernel::OM->Get('Kernel::System::Web::Request'),
         );
 
         %DFPossibleValues = map { 'DynamicField_' . $_ => $DynFieldStates{Fields}{$_}{PossibleValues} } keys $Self->{DynamicField}->%*;

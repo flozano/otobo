@@ -1628,6 +1628,7 @@ sub Run {
                     Autoselect                => $Autoselect,
                     ACLPreselection           => $ACLPreselection,
                     LoopProtection            => \$LoopProtection,
+                    ParamObject               => $ParamObject,
                 );
 
                 # combine FieldStates
@@ -2175,6 +2176,7 @@ sub Run {
                     Autoselect                => $Autoselect,
                     ACLPreselection           => $ACLPreselection,
                     LoopProtection            => \$LoopProtection,
+                    ParamObject               => $ParamObject,
                 );
 
                 # combine FieldStates
