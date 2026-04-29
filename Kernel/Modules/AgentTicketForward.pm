@@ -915,7 +915,6 @@ sub SendEmail {
     }
     $GetParam{DynamicField} = \%DynamicFieldACLParameters;
 
-    my $QueueID = $Self->{QueueID};
     my %StateData;
 
     if ( $GetParam{ComposeStateID} ) {
@@ -1450,15 +1449,11 @@ sub SendEmail {
 sub AjaxUpdate {
     my ( $Self, %Param ) = @_;
 
-    my %Error;
     my %ACLCompatGetParam = %{ $Self->{ACLCompatGetParam} };
 
     my %GetParamExtended = $Self->_GetExtendedParams();
 
-    my %GetParam            = %{ $GetParamExtended{GetParam} };
-    my @MultipleCustomer    = @{ $GetParamExtended{MultipleCustomer} };
-    my @MultipleCustomerCc  = @{ $GetParamExtended{MultipleCustomerCc} };
-    my @MultipleCustomerBcc = @{ $GetParamExtended{MultipleCustomerBcc} };
+    my %GetParam = %{ $GetParamExtended{GetParam} };
 
     my @ExtendedData;
 
@@ -1742,7 +1737,7 @@ sub _Mask {
             );
             if ( $Item->{CustomerError} ) {
                 $LayoutObject->Block(
-                    Name => 'CcCustomerErrorExplantion',
+                    Name => 'CcCustomerErrorExplanation',
                 );
             }
             $CustomerCounterCc++;
@@ -1775,7 +1770,7 @@ sub _Mask {
             );
             if ( $Item->{CustomerError} ) {
                 $LayoutObject->Block(
-                    Name => 'BccCustomerErrorExplantion',
+                    Name => 'BccCustomerErrorExplanation',
                 );
             }
             $CustomerCounterBcc++;
@@ -1808,7 +1803,7 @@ sub _Mask {
             );
             if ( $Item->{CustomerError} ) {
                 $LayoutObject->Block(
-                    Name => 'CustomerErrorExplantion',
+                    Name => 'CustomerErrorExplanation',
                 );
             }
             $CustomerCounter++;
