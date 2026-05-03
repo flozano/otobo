@@ -1,0 +1,73 @@
+%YAML 1.1
+---
+
+# Test workflow for verifying multi-arch Docker image builds (amd64 + arm64).
+# This workflow builds but does NOT push to DockerHub, so no secrets are needed.
+# Intended to be run manually on a fork to validate the multiarch-docker-images PR.
+
+name: 'TestMultiArchBuild'
+
+on:
+  workflow_dispatch:
+
+jobs:
+  BuildDockerImage:
+
+    runs-on: 'ubuntu-latest'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          -
+            target:     'otobo-web'
+            dockerfile: 'otobo.web.dockerfile'
+            context:    '.'
+            platforms:  'linux/amd64,linux/arm64'
+          -
+            target:     'otobo-elasticsearch'
+            dockerfile: 'otobo.elasticsearch.dockerfile'
+            context:    'scripts/elasticsearch'
+            platforms:  'linux/amd64,linux/arm64'
+          -
+            target:     'otobo-nginx-webproxy'
+            dockerfile: 'otobo.nginx.dockerfile'
+            context:    'scripts/nginx'
+            platforms:  'linux/amd64,linux/arm64'
+          -
+            target:     'otobo-nginx-kerberos-webproxy'
+            dockerfile: 'otobo.nginx.dockerfile'
+            context:    'scripts/nginx'
+            platforms:  'linux/amd64,linux/arm64'
+
+    steps:
+
+      -
+        name: 'Check out the branch'
+        uses: actions/checkout@v6
+
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      -
+        name: 'Build multi-arch image (no push)'
+        uses: docker/build-push-action@v7
+        with:
+          push: false
+          platforms: ${{ matrix.platforms }}
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          pull: true
+          build-args: |
+            BUILD_DATE=test
+            DOCKER_TAG=test-multiarch
+            GIT_REPO=${{ github.repositoryUrl }}
+            GIT_BRANCH=${{ github.ref_name }}
+            GIT_COMMIT=${{ github.sha }}
+          target: ${{ matrix.target }}
+          tags: 'test/${{ matrix.target }}:multiarch-test'
